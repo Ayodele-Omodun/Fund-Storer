@@ -40,11 +40,14 @@ contract FundStorer {
     function deposit(int256 _timeLengthInSeconds) public payable {
         // block.timestamp is used because it continously counts while variables don't, it is in milliseconds
         saverToTimeDeposited[msg.sender] = int256(block.timestamp / 1000);
-        // total time needed to store money
+        // time funds will get released
         saverToTimeLength[msg.sender] = _timeLengthInSeconds;
+        // total time needed to store money
         saverToTimeOver[msg.sender] = (saverToTimeDeposited[msg.sender] +
             _timeLengthInSeconds);
+        // each depositer amount
         addressToAmountStored[msg.sender] = msg.value;
+        // new contract balance
         uint256 currentBalance = address(this).balance;
         bool Tansactionsuccess = (currentBalance - previousBalance ==
             msg.value);
@@ -53,12 +56,14 @@ contract FundStorer {
     }
 
     function withdraw() public {
+        // authentication of depositer
         if (addressToAmountStored[msg.sender] == 0) revert NoAmountStored();
         // checks if time
         if (getTimeLeft(msg.sender) > 0) revert NotYetTime();
         payable(msg.sender).transfer(addressToAmountStored[msg.sender]);
         bool withdrawn = (previousBalance -
             addressToAmountStored[msg.sender]) >= address(this).balance;
+        // reinitializing of variables
         saverToTimeDeposited[msg.sender] = 0;
         saverToTimeOver[msg.sender] = 0;
         addressToAmountStored[msg.sender] = 0;
@@ -66,6 +71,7 @@ contract FundStorer {
         emit Withdrawn(withdrawn);
     }
 
+    // time left before release of funds
     function getTimeLeft(
         address _saver
     ) public view onlyOwner(_saver) returns (int256) {
@@ -79,13 +85,14 @@ contract FundStorer {
         }
     }
 
-    // this gets the amount an address stored (only the address can check it's own amount)
+    // this gets the amount an address stored (only the address can check it's own amount stored)
     function getAmountStored(
         address _saver
     ) public view onlyOwner(_saver) returns (uint256) {
         return addressToAmountStored[_saver];
     }
 
+    // time depositer stored money (in seconds)
     function getTimeDeposited(
         address _saver
     ) external view onlyOwner(_saver) returns (int256) {
@@ -98,15 +105,19 @@ contract FundStorer {
         return saverToTimeLength[_saver];
     }
 
+    // to get each person that deposited
     function getDepositer(
         uint256 depositerIndex
-    ) private view returns (address) {
+    ) public view returns (address) {
         return depositers[depositerIndex];
     }
 
+    // to destroy the smart contract
     function destroy() external onlyOwner(i_owner) {
-        for (uint i = 0; i < depositers.length; i++) {
-            depositers[i].transfer(addressToAmountStored[depositers[i]]);
+        // to return funds to each depositer
+        address payable[] memory newDepositer = depositers;
+        for (uint i = 0; i < newDepositer.length; i++) {
+            newDepositer[i].transfer(addressToAmountStored[newDepositer[i]]);
         }
         selfdestruct(payable(i_owner));
     }
