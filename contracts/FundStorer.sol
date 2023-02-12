@@ -24,6 +24,9 @@ contract FundStorer {
     // used to store each instance of the struct, this allows for multiple-seperate payments without mixing things up
     DepositDetails[] private arrOfDepositDetails;
 
+    /* MAPPING */
+    mapping(address => uint256) private addressToTotalAmountPaid;
+
     /* STRUCT */
     struct DepositDetails {
         address saver;
@@ -101,10 +104,14 @@ contract FundStorer {
         bool Tansactionsuccess = (currentBalance - previousBalance ==
             msg.value);
         emit Deposited(depositId, Tansactionsuccess);
+        addressToTotalAmountPaid[msg.sender] += msg.value;
         previousBalance = currentBalance;
         depositId++;
     }
 
+    /**
+     * @dev depositId is used so that there can be access to each property of the transaction e.g. time the amount was deposited
+     */
     function withdraw(
         uint16 _depositId,
         uint256 _amountToWithdraw
@@ -123,6 +130,7 @@ contract FundStorer {
         arrOfDepositDetails[_depositId].amountLeft =
             arrOfDepositDetails[_depositId].amountDeposited -
             arrOfDepositDetails[_depositId].amountWithdrawn;
+        addressToTotalAmountPaid[msg.sender] -= _amountToWithdraw;
         // to confirm if fund was sent out if contract
         // Note: it is expected to be greater than or equal to due to gasPrice
         bool withdrawn = (previousBalance - _amountToWithdraw) >=
@@ -168,6 +176,10 @@ contract FundStorer {
         uint16 _depositId
     ) external view onlyYoursCanBeViewed(_depositId) returns (uint256) {
         return arrOfDepositDetails[_depositId].timeLength;
+    }
+
+    function getTotalAmountStored() external view returns (uint256) {
+        return addressToTotalAmountPaid[msg.sender];
     }
 
     /*     function getDepositer(uint16 _depositId) public view returns (address) {
