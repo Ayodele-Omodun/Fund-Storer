@@ -17,6 +17,10 @@ The easiest way to see how this works is to:
 
 1. clone this project
 
+```shell
+git clone https://github.com/Ayodele-Omodun/Fund-Storer.git
+```
+
 Try running some of the following tasks:
 
 ```shell
