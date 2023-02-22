@@ -1,4 +1,5 @@
 /** @format */
+const { network } = require("hardhat");
 
 module.exports = {
   5: {
@@ -9,10 +10,9 @@ module.exports = {
   },
 };
 
-const amount = "0.1";
-const time = 10;
-const minimumAmount = 0.1;
-const minimumTimeLimit = 10;
+const amount = "1000000000000000000000";
+const time = 0;
+const withdrawAmount = "1";
 
 developmentChains = ["hardhat", "localhost"];
 
@@ -20,6 +20,17 @@ module.exports = {
   amount,
   time,
   developmentChains,
-  minimumAmount,
-  minimumTimeLimit,
+  moveBlocks,
+  moveTime,
+  withdrawAmount,
 };
+
+async function moveBlocks(amount) {
+  for (let i = 0; i < amount; i++) {
+    network.provider.request({ method: "evm_mine", params: [] });
+  }
+}
+
+async function moveTime(amount) {
+  network.provider.request({ method: "evm_increaseTime", params: [amount] });
+}

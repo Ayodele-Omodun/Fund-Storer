@@ -15,7 +15,7 @@ This projects shows how to do the following:
 
 The easiest way to see how this works is to:
 
-1. clone this project
+- clone this project
 
 ```shell
 git clone https://github.com/Ayodele-Omodun/Fund-Storer.git
@@ -45,7 +45,7 @@ If you found an issue or would like to submit an improvement to this project, pl
 - Users are able to pay more than once consecutively
 - Certain security problems have been fixed
 
-## Features still workning on
+## Features still working on
 
 This project is still being worked on.
 

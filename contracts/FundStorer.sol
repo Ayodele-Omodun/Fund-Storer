@@ -3,55 +3,44 @@
 pragma solidity ^0.8.8;
 
 /* CUSTOM ERRORS */
-error TimeLimitNotReached();
-error NotOwner();
+error unlockTimeNotReached(uint256 timeLeft);
 error TransactionInProgress();
 error onlyYourDetailsCanBeViewed();
-error InsufficientFunds();
-error NotEnoughFundStored();
+error InsufficientFunds(uint16 depositId);
+error notOwner();
 
 contract FundStorer {
     /* STATE VARIABLES */
-    address public immutable i_owner;
-    // minimum amount that can be stored in terms of ether
-    uint256 public immutable minimumAmount;
-    uint256 public immutable minimumTimeLimit;
     uint256 private previousBalance = address(this).balance;
     bool internal locked = false;
-    uint256 private constant DECIMAL = 10e18;
-    // used as a nonce to access each point on the arrOfDepositDetails array
+    // used as a nonce to access each point on the idToDepositDetails mapping
     uint16 private depositId = 0;
-    // used to store each instance of the struct, this allows for multiple-seperate payments without mixing things up
-    DepositDetails[] private arrOfDepositDetails;
 
     /* MAPPING */
+    // depositor -> total amount the depositor has in the contract
     mapping(address => uint256) private addressToTotalAmountPaid;
+    //     depositId -> struct(DepositDetails)
+    mapping(uint16 => DepositDetails) private idToDepositDetails;
 
     /* STRUCT */
     struct DepositDetails {
-        address saver;
+        address depositor;
         uint256 amountDeposited;
         uint256 amountWithdrawn;
         uint256 amountLeft;
         uint256 timeDeposited;
         uint256 timeLength;
-        uint256 timeLimit;
+        uint256 unlockTime;
     }
 
     /* EVENTS */
     event Withdrawn(bool _withdrawn);
-    event Deposited(uint16 indexed transactionId, bool transactionSuccess);
+    event Deposited(uint16 indexed depositId, bool transactionSuccess);
 
     /* MODIFIERS */
-    // allows only the owner of the contract
-    modifier onlyOwner() {
-        if (msg.sender != i_owner) revert NotOwner();
-        _;
-    }
-
     // allow only onwers of transaction details to be able to view their details (to limit who can view details)
     modifier onlyYoursCanBeViewed(uint16 _depositId) {
-        if (msg.sender != arrOfDepositDetails[_depositId].saver)
+        if (msg.sender != idToDepositDetails[_depositId].depositor)
             revert onlyYourDetailsCanBeViewed();
         _;
     }
@@ -75,37 +64,27 @@ contract FundStorer {
         deposit(24 * 60 * 60);
     }
 
-    constructor(uint256 _minimumAmount, uint256 _minimumTimeLimitInSeconds) {
-        i_owner = msg.sender;
-        minimumAmount = _minimumAmount * DECIMAL;
-        minimumTimeLimit = _minimumTimeLimitInSeconds;
-    }
+    /**
+     * @dev constructor is payable so at deployment ether can be added to contract to avoid problems with withdrawal due to gas
+     */
+    constructor() payable {}
 
     function deposit(uint256 _timeLengthInSeconds) public payable noReentrancy {
-        if (msg.value < minimumAmount) revert NotEnoughFundStored();
-        DepositDetails memory depositDetails;
-        depositDetails.saver = msg.sender;
-        // block.timestamp is used because it continously counts while variables don't, it is in milliseconds
-        // so the time-related variables are made in relation to block.timestamp
-        depositDetails.timeDeposited = (block.timestamp / 1000);
-        // time funds will get released
-        depositDetails.timeLength = _timeLengthInSeconds;
-        // total time needed to store money
-        depositDetails.timeLimit =
-            depositDetails.timeLength +
-            depositDetails.timeDeposited;
-        // setting each transaction amount related variables
-        depositDetails.amountLeft = depositDetails.amountDeposited = msg.value;
-        depositDetails.amountWithdrawn = 0;
-        // storing the struct in an array
-        arrOfDepositDetails.push(depositDetails);
-        // new contract balance
-        uint256 currentBalance = address(this).balance;
-        bool Tansactionsuccess = (currentBalance - previousBalance ==
+        idToDepositDetails[depositId] = DepositDetails(
+            msg.sender,
+            msg.value,
+            0,
+            msg.value,
+            (block.timestamp / 1000),
+            _timeLengthInSeconds,
+            ((block.timestamp / 1000) + _timeLengthInSeconds)
+        );
+        // new contract balance ;
+        bool Tansactionsuccess = (address(this).balance - previousBalance ==
             msg.value);
         emit Deposited(depositId, Tansactionsuccess);
         addressToTotalAmountPaid[msg.sender] += msg.value;
-        previousBalance = currentBalance;
+        previousBalance = address(this).balance;
         depositId++;
     }
 
@@ -116,25 +95,26 @@ contract FundStorer {
         uint16 _depositId,
         uint256 _amountToWithdraw
     ) public noReentrancy {
-        // checks if amount is available
+        if (msg.sender != idToDepositDetails[_depositId].depositor)
+            revert notOwner();
+        // calculates the amount in terms of wei
+        uint256 calculatedAmount = _amountToWithdraw * 10 ** 18;
+        // checks if amount is available for withdrawal
         if (
-            arrOfDepositDetails[_depositId].amountLeft < _amountToWithdraw ||
-            arrOfDepositDetails[_depositId].amountLeft == 0
-        ) revert InsufficientFunds();
+            calculatedAmount > idToDepositDetails[_depositId].amountLeft ||
+            idToDepositDetails[_depositId].amountLeft == 0
+        ) revert InsufficientFunds(_depositId);
         // checks time
-        if (getTimeLeft(_depositId) != 0) revert TimeLimitNotReached();
-        // pays the saver
-        payable(msg.sender).transfer(_amountToWithdraw);
+        if (getTimeLeft(_depositId) > 0)
+            revert unlockTimeNotReached(getTimeLeft(_depositId));
+        // pays the depositor
+        (bool withdrawn, ) = msg.sender.call{value: calculatedAmount}("");
         // updates amount-related variables
-        arrOfDepositDetails[_depositId].amountWithdrawn += _amountToWithdraw;
-        arrOfDepositDetails[_depositId].amountLeft =
-            arrOfDepositDetails[_depositId].amountDeposited -
-            arrOfDepositDetails[_depositId].amountWithdrawn;
-        addressToTotalAmountPaid[msg.sender] -= _amountToWithdraw;
-        // to confirm if fund was sent out if contract
-        // Note: it is expected to be greater than or equal to due to gasPrice
-        bool withdrawn = (previousBalance - _amountToWithdraw) >=
-            address(this).balance;
+        idToDepositDetails[_depositId].amountWithdrawn += calculatedAmount;
+        idToDepositDetails[_depositId].amountLeft =
+            idToDepositDetails[_depositId].amountDeposited -
+            idToDepositDetails[_depositId].amountWithdrawn;
+        addressToTotalAmountPaid[msg.sender] -= calculatedAmount;
         // setting other variables
         previousBalance = address(this).balance;
         emit Withdrawn(withdrawn);
@@ -147,13 +127,12 @@ contract FundStorer {
         // to avoid underflow
         if (
             (block.timestamp / 1000) >=
-            arrOfDepositDetails[_depositId].timeLimit
+            idToDepositDetails[_depositId].unlockTime
         ) {
             return 0;
         } else {
-            return
-                arrOfDepositDetails[_depositId].timeLimit -
-                (block.timestamp / 1000);
+            return (idToDepositDetails[_depositId].unlockTime -
+                (block.timestamp / 1000));
         }
     }
 
@@ -161,28 +140,28 @@ contract FundStorer {
     function getAmountStored(
         uint16 _depositId
     ) public view onlyYoursCanBeViewed(_depositId) returns (uint256) {
-        return arrOfDepositDetails[_depositId].amountDeposited;
-    }
-
-    // time depositer stored funds (in seconds)
-    function getTimeDeposited(
-        uint16 _depositId
-    ) external view onlyYoursCanBeViewed(_depositId) returns (uint256) {
-        return arrOfDepositDetails[_depositId].timeDeposited;
+        return idToDepositDetails[_depositId].amountDeposited;
     }
 
     // how long funds should be stored before being transferable
     function timeLength(
         uint16 _depositId
     ) external view onlyYoursCanBeViewed(_depositId) returns (uint256) {
-        return arrOfDepositDetails[_depositId].timeLength;
+        return idToDepositDetails[_depositId].timeLength;
     }
 
     function getTotalAmountStored() external view returns (uint256) {
         return addressToTotalAmountPaid[msg.sender];
     }
 
-    /*     function getDepositer(uint16 _depositId) public view returns (address) {
-        return arrOfDepositDetails[_depositId].saver;
-    } */
+    function getDepositDetails(
+        uint16 _depositId
+    )
+        external
+        view
+        onlyYoursCanBeViewed(_depositId)
+        returns (DepositDetails memory)
+    {
+        return idToDepositDetails[_depositId];
+    }
 }

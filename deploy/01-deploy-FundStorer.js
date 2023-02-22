@@ -3,15 +3,14 @@
 const { network } = require("hardhat");
 const { verify } = require("../utils/verify.js");
 const {
-  minimumAmount,
   minimumTimeLimit,
+  developmentChains,
 } = require("../helper-hardhat-config.js");
 
 module.exports = async ({ deployments, getNamedAccounts }) => {
   const { deploy, log } = deployments;
   const { deployer } = await getNamedAccounts();
-
-  const args = [minimumAmount, minimumTimeLimit];
+  log("Deploying.........................");
 
   const fundStorer = await deploy("FundStorer", {
     from: deployer,
@@ -21,8 +20,12 @@ module.exports = async ({ deployments, getNamedAccounts }) => {
   log("deployed...........");
   log("_______________________________________");
 
-  if (network.config.chainId == 5) {
-    verify(storeFund.address, "");
+  if (
+    !developmentChains.includes(network.name) &&
+    process.env.ETHERSCAN_API_KEY
+  ) {
+    await verify(storeFund.address, []);
+    log("verified..........");
   }
 };
 

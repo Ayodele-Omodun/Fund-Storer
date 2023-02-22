@@ -1,0 +1,6 @@
+0x44390589104C9164407A0E0562a9DBe6C24A0E05
+ write some scripts to interact with your contract
+
+add logs to your projects to make it look finer
+
+check your private variables by writing some public functions

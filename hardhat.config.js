@@ -1,29 +1,29 @@
-require("@nomicfoundation/hardhat-toolbox")
-require("@nomiclabs/hardhat-etherscan")
-require("@nomicfoundation/hardhat-chai-matchers")
-require("@nomicfoundation/hardhat-network-helpers") 
-require("hardhat-deploy")
-require("@nomiclabs/hardhat-ethers")
-require("dotenv").config()
-require("solidity-coverage")
-require("chai")
-require("@nomiclabs/hardhat-waffle")
+/** @format */
 
-GOERLI_URL = process.env.GOERLI_URL
-PRIVATE_KEY = process.env.PRIVATE_KEY
-ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY
+require("@nomicfoundation/hardhat-toolbox");
+require("@nomiclabs/hardhat-etherscan");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomicfoundation/hardhat-network-helpers");
+require("hardhat-deploy");
+require("@nomiclabs/hardhat-ethers");
+require("dotenv").config();
+require("chai");
+
+GOERLI_URL = process.env.GOERLI_URL;
+PRIVATE_KEY = process.env.PRIVATE_KEY;
+ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.17",
   namedAccounts: {
     deployer: {
-        default: 0,
+      default: 0,
     },
     user: {
-        default: 1,
+      default: 1,
     },
-},
+  },
   networks: {
     goerli: {
       url: GOERLI_URL,
@@ -35,4 +35,7 @@ module.exports = {
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
   },
-}
+  /* mocha: {    
+  timeout: 100000,
+  } */
+};
