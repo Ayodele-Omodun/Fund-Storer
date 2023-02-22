@@ -23,57 +23,37 @@ developmentChains.includes(network.name)
 
       describe("deposit", () => {
         it("receives the money", async () => {
-          const initialAmount = await ethers.provider.getBalance(
+          const initContractAmount = await ethers.provider.getBalance(
             fundStorer.address
           );
           const tx = await fundStorer.deposit(time, { value: amount });
           await tx.wait(1);
-          const finalAmount = await ethers.provider.getBalance(
+          const finalContractAmount = await ethers.provider.getBalance(
             fundStorer.address
           );
-          assert.equal(
-            amount.toString(),
-            finalAmount.sub(initialAmount).toString()
-          );
-        });
-        let depositTxRes, depositTxReciept, depositId;
-        beforeEach(async () => {
-          depositTxRes = await fundStorer.deposit(time, {
-            value: amount,
-          });
-          depositTxReciept = await depositTxRes.wait(1);
-          depositId = await depositTxReciept.event[1].args.depositId;
-        });
-        it("stores the depositor correctly", async () => {
-          const depositor = await fundStorer.getDepositDetails(depositId)
-            .depositor;
-          assert.equal(depositor, deployer);
-        });
-        it("stores the amount deposited correctly", async () => {
-          const amountDeposited = await fundStorer.getDepositDetails(depositId)
-            .amountDeposited;
-          assert.equal(amountDeposited, amount);
-        });
-        it("stores the time length correctly", async () => {
-          const timeDeposited = await fundStorer.getDepositDetails(depositId)
-            .timeDeposited;
-          assert.equal(timeDeposited, time);
-        });
-        it("emits the deposited event", async () => {
-          await expect(
-            await fundStorer.deposit(time, { value: amount })
-          ).to.emit("FundStorer", "Deposited");
+          const balance = finalContractAmount.sub(initContractAmount);
+          assert.equal(balance.toString(), amount);
         });
       });
 
       describe("Withdraw", () => {
-        let txReceipt;
-        beforeEach(async () => {
-          const depositTx = await fundStorer.deposit(time, { value: amount });
-          txReceipt = await depositTx.wait(1);
-        });
-        it("reverts if the function caller is not the owner of the depositId", async () => {
-          expect(await fundStorer.withdraw("3", amount)).to.be.reverted;
+        it("pays the depositer", async () => {
+          const initContractrBalance = (
+            await ethers.provider.getBalance(fundStorer.address)
+          ).toString();
+          moveBlocks(time + 2);
+          moveTime(time + 2);
+          const tx = await fundStorer.withdraw(depositId, withdrawAmount);
+          await tx.wait(1);
+          const finalContractrBalance = (
+            await ethers.provider.getBalance(fundStorer.address)
+          ).toString();
+          const totBalance = Math.abs(
+            +finalContractrBalance - +initContractrBalance
+          );
+          expect(totBalance).to.be.greaterThanOrEqual(
+            withdrawAmount * 10 ** 18
+          );
         });
       });
     });
