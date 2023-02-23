@@ -6,8 +6,6 @@ const {
   amount,
   time,
   developmentChains,
-  moveBlocks,
-  moveTime,
 } = require("../../helper-hardhat-config");
 
 developmentChains.includes(network.name)
@@ -41,13 +39,13 @@ developmentChains.includes(network.name)
           const initContractrBalance = (
             await ethers.provider.getBalance(fundStorer.address)
           ).toString();
-          moveBlocks(time + 2);
-          moveTime(time + 2);
           const tx = await fundStorer.withdraw(depositId, withdrawAmount);
           await tx.wait(1);
           const finalContractrBalance = (
             await ethers.provider.getBalance(fundStorer.address)
           ).toString();
+          // +(string) converts the string into a number
+          // Math.abs() is used to get an unsigned integer
           const totBalance = Math.abs(
             +finalContractrBalance - +initContractrBalance
           );

@@ -11,6 +11,8 @@ const {
   developmentChains,
 } = require("../../helper-hardhat-config");
 
+// developmentChains is used to check if I am working on a local network(like hardhat) or testnet/mainnet
+
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("FundStorer", () => {
@@ -100,10 +102,14 @@ const {
           const initContractrBalance = (
             await ethers.provider.getBalance(fundStorer.address)
           ).toString();
+          // to mine blocks on the local blockchain
           moveBlocks(time + 2);
+          // to move time forward
           moveTime(time + 2);
           const tx = await fundStorer.withdraw(depositId, withdrawAmount);
           await tx.wait(1);
+          // +(string) converts the string into a number
+          // Math.abs() was used to get the number without a sign
           const finalContractrBalance = (
             await ethers.provider.getBalance(fundStorer.address)
           ).toString();
@@ -111,7 +117,7 @@ const {
             +finalContractrBalance - +initContractrBalance
           );
         });
-        expect(totBalance).to.be.greaterThanOrEqual(withdrawAmount * 10 ** 18);
+        expect(totBalance).to.be.lessThanOrEqual(withdrawAmount * 10 ** 18);
         it("calculates amount left", async () => {
           await moveBlocks("100");
           await moveTime("100");
